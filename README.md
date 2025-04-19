@@ -1,49 +1,87 @@
-# media-scripts
+## Image Generator Script
 
-scripts for converting media to web formats
+A bash script to generate multiple images with customizable text, fonts, gradient backgrounds, and text colors using ImageMagick.
 
-### Images:
-
-Resizes images to 1080px on the longest side, maintaining aspect ratio.
-
-```
-chmod +x .sh
-./imageresize.sh /path/to/images
-```
-
-
-### Videos:
-
-Takes a .mov and outputs .webm and .mp4, as well as a .jpg thumbnail.
-
-
-```
-chmod +x videoconvert.sh
-./videoconvert.sh /path/to/videos
-```
-
-
-## Audio File Converter
-
-This script recursively converts all `.m4a` and `.mp3` files in an input directory to `.wav` format in an output directory, preserving the directory structure.
+### Features
+- Generate multiple images in one run
+- Custom gradient backgrounds (start and end colors)
+- Custom gradient text colors
+- Flexible output naming patterns
+- Automatic numbered output files
+- Custom output directory
+- Custom font selection
+- Adjustable font size
 
 ### Requirements
-- `ffmpeg` must be installed on your system
+- ImageMagick (`convert` command)
+- `bc` calculator (for color interpolation)
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/media_scripts.git
+cd media_scripts
+
+# Make the script executable
+chmod +x generate_images.sh
+```
 
 ### Usage
 ```bash
-./convert_to_wav.sh <input_directory> <output_directory>
+./generate_images.sh [OPTIONS]
 ```
 
-### Features
-- Preserves original directory structure
-- Converts both `.m4a` and `.mp3` files
-- Outputs standard WAV format (16-bit PCM, 44100Hz, stereo)
-- Quiet operation with progress stats
+### Options
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-t`, `--text` | Text to display | "Sample Text" |
+| `-f`, `--font` | Font to use (system must have font installed) | System default |
+| `-fs`, `--font-size` | Font size in points | 48 |
+| `-bs`, `--bg-start` | Background start color (hex) | "#4285F4" |
+| `-be`, `--bg-end` | Background end color (hex) | "#34A853" |
+| `-ts`, `--text-start` | Text start color (hex) | "white" |
+| `-te`, `--text-end` | Text end color (hex) | "#FBBC05" |
+| `-w`, `--width` | Image width | 800 |
+| `-h`, `--height` | Image height | 400 |
+| `-o`, `--output-dir` | Output directory | "output_images" |
+| `-c`, `--count` | Number of images to generate | 5 |
+| `-n`, `--name` | Filename pattern (use `%d` for number) | "image_%d.png" |
 
-### Example
+### Examples
+
+**Basic example with custom font:**
 ```bash
-./convert_to_wav.sh ~/Music/input_files ~/Music/wav_files
+./generate_images.sh -t "Hello World" -f "Arial" -fs 60 -c 5
 ```
 
-This will convert all audio files in `~/Music/input_files` and its subdirectories to WAV format in `~/Music/wav_files`, keeping the original file dates.
+**Custom colors and font size:**
+```bash
+./generate_images.sh -t "Gradient Demo" -fs 36 -bs "#FF0000" -be "#0000FF" \
+  -ts "#FFFFFF" -te "#000000" -n "slide_%d.png" -c 10
+```
+
+### Font Selection Tips
+1. To list available fonts on your system:
+   ```bash
+   convert -list font
+   ```
+2. For Google Fonts, ensure the font is installed system-wide
+3. Font names are case-sensitive
+4. For fonts with spaces, use quotes: `-f "Times New Roman"`
+
+### Color Interpolation
+The script automatically creates smooth gradients between:
+- Background start and end colors
+- Text start and end colors
+
+Each image's colors are calculated based on its position in the sequence.
+
+### Output Patterns
+- Use `%d` in the name pattern for explicit number placement (e.g., `"image_%d.png"`)
+- Without `%d`, numbers will be appended before the extension (e.g., `"output.png"` becomes `output1.png`)
+
+### Notes
+- All generated images will be saved in the specified output directory
+- The output directory will be created if it doesn't exist
+- Colors must be specified in hex format (e.g., "#RRGGBB")
+- Font size is specified in points (1 point = 1/72 inch)
