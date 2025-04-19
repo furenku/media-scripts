@@ -12,7 +12,7 @@ DEFAULT_WIDTH=800
 DEFAULT_HEIGHT=400
 DEFAULT_OUTPUT_DIR="output_images"
 DEFAULT_COUNT=5
-DEFAULT_NAME_PATTERN="image_%d.png"  # %d will be replaced with number
+DEFAULT_NAME_PATTERN="%d.png"  # %d will be replaced with number
 
 # Check dependencies
 if ! command -v convert &> /dev/null; then

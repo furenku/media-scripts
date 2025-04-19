@@ -60,14 +60,29 @@ chmod +x generate_images.sh
   -ts "#FFFFFF" -te "#000000" -n "slide_%d.png" -c 10
 ```
 
+**With custom font and size**
+```bash
+./generate_images.sh -t "Custom Font" -f "Arial" -fs 72 -c 3
+```
+
+**With Google Font (must be installed)**
+```bash
+./generate_images.sh -t "Roboto Text" -f "Roboto" -fs 60
+```
+
+**System default font with larger size**
+```bash
+./generate_images.sh -fs 80 -t "Large Text"
+```
+
+
 ### Font Selection Tips
 1. To list available fonts on your system:
    ```bash
    convert -list font
    ```
-2. For Google Fonts, ensure the font is installed system-wide
-3. Font names are case-sensitive
-4. For fonts with spaces, use quotes: `-f "Times New Roman"`
+2. Font names are case-sensitive
+3. For fonts with spaces, use quotes: `-f "Times New Roman"`
 
 ### Color Interpolation
 The script automatically creates smooth gradients between:
