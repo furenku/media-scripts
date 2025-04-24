@@ -2,11 +2,11 @@
 
 # Default values
 DEFAULT_TEXT=""
-DEFAULT_FONT="Ubuntu-Sans"  # System default
+DEFAULT_FONT="Ubuntu-Sans-Condensed-ExtraBold"  # System default
 DEFAULT_FONT_SIZE=48
 DEFAULT_BG_START="#4285F4"  # Google blue
 DEFAULT_BG_END="#34A853"    # Google green
-DEFAULT_TEXT_START="white"
+DEFAULT_TEXT_START="#FFFFFF" # White
 DEFAULT_TEXT_END="#FBBC05"   # Google yellow
 DEFAULT_WIDTH=800
 DEFAULT_HEIGHT=400
@@ -122,50 +122,91 @@ interpolate_color() {
     g=$(echo "scale=0; $g1 + ($g2 - $g1) * $factor" | bc)
     b=$(echo "scale=0; $b1 + ($b2 - $b1) * $factor" | bc)
     
-    # Convert back to hex
+    r=${r%.*}
+    g=${g%.*}
+    b=${b%.*}
+
     printf "#%02x%02x%02x" "$r" "$g" "$b"
+
 }
 
-# Generate images
-for ((i=1; i<=COUNT; i++)); do
-    # Calculate progress (0 to 1)
-    progress=$(echo "scale=2; ($i-1)/($COUNT-1)" | bc)
-    
+for i in $(seq 0 $((COUNT - 1))); do
+    # Calculate interpolation factor (0 to 1)
+    # Handle COUNT=1 case to avoid division by zero
+    if [[ $COUNT -eq 1 ]]; then
+        factor=0
+    else
+        # Use bc for floating point division
+        factor=$(echo "scale=10; $i / ($COUNT - 1)" | bc)
+    fi
+
     # Interpolate colors
-    if [ "$COUNT" -eq 1 ]; then
+    bg_color=$(interpolate_color "$BG_START" "$BG_END" "$factor")
+    text_color=$(interpolate_color "$TEXT_START" "$TEXT_END" "$factor")
+    # Check if interpolation failed (returned original color and exit code 1)
+    if [[ $? -ne 0 ]]; then
+        echo "Warning: Color interpolation failed for image $i. Using start colors." >&2
+        # Optionally fallback or exit
         bg_color="$BG_START"
         text_color="$TEXT_START"
+        # exit 1 # Or continue with defaults
+    fi
+
+
+    # Format filename
+    # Using printf for potentially safer formatting than direct substitution
+    filename=$(printf "$NAME_PATTERN" "$((i+1))")
+
+    # Build the convert command arguments in an array for safety
+    cmd_args=() # Initialize empty array
+
+    # Base command: Create the gradient background canvas
+    # Use the interpolated bg_color for a smooth transition effect image-to-image
+    # Or use "$BG_START"-"$BG_END" for a consistent gradient in every image
+    # Let's use the interpolated color for a solid background that changes
+    # cmd_args=(convert -size "${WIDTH}x${HEIGHT}" "canvas:${bg_color}")
+    # -- OR -- for a gradient within each image:
+    cmd_args=(convert -size "${WIDTH}x${HEIGHT}" "gradient:${BG_START}-${BG_END}")
+
+
+    # Font settings (only if FONT is explicitly provided by user)
+    # Check the variable FONT which holds the user input or the default
+    if [[ "$FONT" != "$DEFAULT_FONT" ]] || [[ -n "$FONT" ]]; then # Add font if specified or not the default
+         # Check if the font exists (basic check)
+         if convert -list font | grep -q "Font: $FONT"; then
+             cmd_args+=(-font "$FONT")
+         else
+             echo "Warning: Font '$FONT' not found by ImageMagick. Using system default." >&2
+             # Optionally remove FONT variable here so it's not used later if needed
+         fi
+    fi
+    # If no valid FONT specified, ImageMagick will use its default
+
+    # Text settings
+    cmd_args+=(-gravity center -pointsize "$FONT_SIZE" -fill "$text_color" -annotate +0+0 "$TEXT")
+
+    # Output file
+    cmd_args+=("$OUTPUT_DIR/$filename")
+
+    # --- Debugging ---
+    printf "\n--- Generating: %s ---\n" "$filename"
+    printf "BG Color: %s, Text Color: %s\n" "$bg_color" "$text_color"
+    printf "Executing command:\n"
+    # Use printf to safely quote each argument
+    printf "  Arg: %q\n" "${cmd_args[@]}"
+    echo "----------------------"
+    # --- End Debugging ---
+
+    # Execute the command
+    if ! "${cmd_args[@]}"; then
+        echo "Error: convert command failed for '$filename'. See ImageMagick error above." >&2
+        # Optional: exit here if one failure should stop the script
+        # exit 1
     else
-        bg_color=$(interpolate_color "$BG_START" "$BG_END" "$progress")
-        text_color=$(interpolate_color "$TEXT_START" "$TEXT_END" "$progress")
+        # Use the previously problematic echo line - should work now
+        echo "Created: $OUTPUT_DIR/$filename (BG: $bg_color, Text: $text_color, Font: ${FONT:-system default}, Size: $FONT_SIZE)"
     fi
-    
-    # Generate filename
-    if [[ "$NAME_PATTERN" == *"%d"* ]]; then
-        filename=$(printf "$NAME_PATTERN" "$i")
-    else
-        filename="${NAME_PATTERN%.*}$i.${NAME_PATTERN##*.}"
-    fi
-    
-    # Build convert command
-    CMD="convert -size \"${WIDTH}x${HEIGHT}\" \"xc:$bg_color\" \
-            -gravity Center \
-            -pointsize \"$FONT_SIZE\" \
-            -fill \"$text_color\" \
-            -annotate 0 \"$TEXT\""
-    
-    # Add font if specified
-    if [ -n "$FONT" ]; then
-        CMD+=" -font \"$FONT\""
-    fi
-    
-    # Complete command with output
-    CMD+=" \"$OUTPUT_DIR/$filename\""
-    
-    # Execute command
-    eval "$CMD"
-    
-    echo "Created: $OUTPUT_DIR/$filename (BG: $bg_color, Text: $text_color, Font: ${FONT:-system default}, Size: $FONT_SIZE)"
+
 done
 
-echo "Successfully created $COUNT images in $OUTPUT_DIR/"
+echo "Image generation complete. Output in '$OUTPUT_DIR'."
