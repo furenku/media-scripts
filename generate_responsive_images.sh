@@ -17,12 +17,12 @@ DEFAULT_NAME_PATTERN="%d.png" # Default name pattern *within* each breakpoint fo
 # Breakpoints: Format "name width" (Common Bootstrap-like breakpoints)
 # You can customize these sizes
 BREAKPOINTS=(
-  "xs 480"
-  "sm 640"
-  "md 768"
-  "lg 1024"
-  "xl 1280"
-  "xxl 1400"
+  "xs 480 $((480 * 9 / 16))"
+  "sm 640 $((640 * 9 / 16))"
+  "md 768 $((768 * 9 / 16))"
+  "lg 1024 $((1024 * 9 / 16))"
+  "xl 1280 $((1280 * 9 / 16))"
+  "xxl 1920 $((1920 * 9 / 16))"
 )
 
 # --- Dependencies Check ---
@@ -129,13 +129,12 @@ done
 # --- Generation Logic ---
 
 echo "Generating $COUNT responsive image(s) for each breakpoint into subdirectories of '$OUTPUT_DIR'..."
-echo "Using base height: ${HEIGHT}px"
 echo "Breakpoints and target sizes:"
-printf "  %-5s %-5s\n" "Name" "Width"
-printf -- "---- -------\n"
+printf "  %-5s %-9s %-5s\n" "Name" "Width" "Height"
+printf -- "---- ------- ------\n"
 for bp_info in "${BREAKPOINTS[@]}"; do
-  read -r bp_name bp_width <<< "$bp_info"
-  printf "  %-5s %-5s\n" "$bp_name" "${bp_width}px"
+  read -r bp_name bp_width bp_height <<< "$bp_info"
+  printf "  %-5s %-7s %-5s\n" "$bp_name" "$bp_width" "$bp_height"
 done
 echo # Add a newline for better separation
 
@@ -144,31 +143,21 @@ mkdir -p "$OUTPUT_DIR"
 
 # Loop through breakpoints again to generate images
 for bp_info in "${BREAKPOINTS[@]}"; do
-  read -r bp_name bp_width <<< "$bp_info"
+  read -r bp_name bp_width bp_height <<< "$bp_info"
 
-  # Create specific output directory for this breakpoint
   bp_output_dir="${OUTPUT_DIR}/${bp_name}"
   mkdir -p "$bp_output_dir"
 
-  # Determine the text for this specific image
   if [ -n "$TEXT" ]; then
-    # Use the user-provided text directly
     current_text="$TEXT"
   else
-    # Substitute values into the text pattern
-    # Using sed for substitution as printf can be tricky with '%'
-    current_text=$(echo "$TEXT_PATTERN" | sed "s/%s/$bp_name/g; s/%w/${bp_width}/g; s/%h/${HEIGHT}/g")
+    current_text=$(echo "$TEXT_PATTERN" | sed "s/%s/$bp_name/g; s/%w/${bp_width}/g; s/%h/${bp_height}/g")
   fi
 
-  echo "--- Generating for breakpoint: $bp_name (${bp_width}x${HEIGHT}) ---"
-  echo "Outputting to: $bp_output_dir"
-  echo "Text: '$current_text'"
-
-  # Call generate_images.sh for the current breakpoint
-  # Pass arguments explicitly to the sub-script
+  echo "--- Breakpoint: $bp_name (${bp_width}x${bp_height}) ---"
   ./generate_images.sh \
     -w "$bp_width" \
-    -h "$HEIGHT" \
+    -h "$bp_height" \
     -c "$COUNT" \
     -o "$bp_output_dir" \
     -t "$current_text" \
@@ -179,18 +168,17 @@ for bp_info in "${BREAKPOINTS[@]}"; do
     -ts "$TEXT_START" \
     -te "$TEXT_END" \
     -n "$NAME_PATTERN"
-    # Note: We let generate_images.sh handle the specific file naming
-    # within its directory using the -n pattern it receives.
 
-  # Check the exit status of the sub-script (optional but good practice)
   if [ $? -ne 0 ]; then
     echo "Error: generate_images.sh failed for breakpoint $bp_name."
-    # Decide whether to continue or exit
-    # exit 1 # Uncomment to stop on first error
+    # exit 1
   fi
 
   echo "--- Done for breakpoint: $bp_name ---"
-  echo # Add a newline for better separation
+  echo
+done
+
+
 
 done # End of breakpoint loop
 
