@@ -3,11 +3,11 @@
 # --- Configuration ---
 # Default values for generate_images.sh arguments if not provided
 DEFAULT_TEXT_PATTERN="%s" # %s=name, %w=width, %h=height. Overridden by -t.
-DEFAULT_FONT="Ubuntu-Sans-Condensed-ExtraBold"
+DEFAULT_FONT="Courier-10-Pitch-Bold"
 DEFAULT_FONT_SIZE_BASE=48 # Base font size, used across breakpoints unless overridden
 DEFAULT_BG_START="#AAAECA" # Default gradient start (light grey-blue)
 DEFAULT_BG_END="#2A2B3A"   # Default gradient end (dark slate blue)
-DEFAULT_TEXT_START="#FFFFFF"
+DEFAULT_TEXT_START="#3F3F3F"
 DEFAULT_TEXT_END="#E0E0E0"  # Light grey
 DEFAULT_BASE_HEIGHT=400     # Default height for all breakpoints, can be overridden by -h
 DEFAULT_OUTPUT_DIR="output_images/responsive" # Default base output directory
