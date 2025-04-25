@@ -75,9 +75,12 @@ Usage:
 Example:
 
 ```bash
-# Generate 10 images (800x600) with text "Example", output to 'generated_pics'
+# Generate 10 PNG images (800x600) with text "Example", output to 'generated_pics'
 ./generate_images.sh -t "Example" -w 800 -h 600 -c 10 -o generated_pics \
     -bs "#FF0000" -be "#0000FF" -ts "#FFFFFF" -te "#FFFF00"
+
+# Generate 3 JPG images (600x300)
+./generate_images.sh -w 600 -h 300 -c 3 -o generated_jpgs --format jpg -n "%d_image"
 ```
 
 Options:
@@ -93,13 +96,15 @@ Options:
 - `-h, --height <number>`: Image height in pixels (Default: 400).
 - `-o, --output-dir <path>`: Directory to save generated images (Default: output_images).
 - `-c, --count <number>`: Number of images to generate (Default: 5).
-- `-n, --name <pattern>`: Output filename pattern. Use %d for sequence number (Default: %d.png).
+- `-n, --name <pattern>`: Output filename pattern (base name). Use %d for sequence number (Default: %d). The file extension is determined by --format.
+- `-fmt, --format, --formats <format>`: Output image format (Default: png). Supported: png, jpg, gif, webp. This option determines the actual format and file extension.
 
 Features:
 
 - Creates images with a smooth gradient background.
 - Overlays centered text, also with an optional gradient fill.
 - Interpolates colors between the start and end values across the generated sequence (when count > 1).
+- Allows specifying the output format (PNG, JPG, GIF, WebP).
 - Highly customizable via command-line options.
 
 Dependencies: bash, ImageMagick (convert), bc, mkdir, printf.
@@ -118,10 +123,13 @@ Usage:
 Example:
 
 ```bash
-# Generate 5 images for each breakpoint into 'responsive_placeholders' directory
+# Generate 5 PNG images for each breakpoint into 'responsive_placeholders' directory
 # Use custom height, colors, and font size
 ./generate_responsive_images.sh -c 5 -o responsive_placeholders -h 300 \
     -bs "#E0C3FC" -be "#8ECAE6" -ts "#023047" -te "#023047" -fs 36
+
+# Generate 2 WebP images per breakpoint
+./generate_responsive_images.sh -c 2 -o responsive_webp --format webp
 ```
 
 Options:
@@ -137,7 +145,8 @@ Options:
 - `-h, --height <number>`: Height in pixels, used for all breakpoints (Default: 400).
 - `-o, --output-dir <path>`: Base directory to save images. Subdirectories named after breakpoints (xs, sm, etc.) will be created here (Default: output_images/responsive).
 - `-c, --count <number>`: Number of images to generate per breakpoint (Default: 1).
-- `-n, --name <pattern>`: Filename pattern for images within each breakpoint directory (passed to `generate_images.sh`). Use %d for sequence number (Default: %d.png).
+- `-n, --name <pattern>`: Filename pattern (base name) for images within each breakpoint directory (passed to `generate_images.sh`). Use %d for sequence number (Default: %d). Extension determined by --format.
+- `-fmt, --format, --formats <format>`: Output image format for all generated images (Default: png). Supported: png, jpg, gif, webp. Passed to `generate_images.sh`.
 - `-w, --width`: This option is ignored by `generate_responsive_images.sh` as width is determined by the predefined breakpoints.
 
 Features:
@@ -145,7 +154,7 @@ Features:
 - Defines standard breakpoints (xs, sm, md, lg, xl, xxl) with corresponding widths.
 - Calls `generate_images.sh` for each defined breakpoint.
 - Generates images into organized subdirectories within the specified output path (e.g., output_dir/xs/, output_dir/sm/, etc.).
-- Allows customization of most visual parameters (colors, font, text, height, font size) which are applied consistently across all breakpoints.
+- Allows customization of most visual parameters (colors, font, text, height, font size, format) which are applied consistently across all breakpoints.
 - Text can be static or dynamic using the --text-pattern option.
 
 Breakpoints (Default):

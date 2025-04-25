@@ -12,7 +12,10 @@ DEFAULT_TEXT_END="#E0E0E0"  # Light grey
 DEFAULT_BASE_HEIGHT=400     # Default height for all breakpoints, can be overridden by -h
 DEFAULT_OUTPUT_DIR="output_images/responsive" # Default base output directory
 DEFAULT_COUNT=1             # Default number of images *per breakpoint*
-DEFAULT_NAME_PATTERN="%d.png" # Default name pattern *within* each breakpoint folder (%d = number)
+# Default name pattern *within* each breakpoint folder (%d = number). No extension here.
+# generate_images.sh will add the correct extension based on format(s).
+DEFAULT_NAME_PATTERN="%d"
+DEFAULT_FORMATS="jpg" # Default output format(s) for generate_images.sh
 
 # Breakpoints: Format "name width" (Common Bootstrap-like breakpoints)
 # You can customize these sizes
@@ -38,7 +41,7 @@ fi
 #     exit 1
 # fi
 
-if [ ! -f "./generate_images.sh" ; then
+if [ ! -f "./generate_images.sh"  ; then
   echo "Error: ./generate_images.sh not found in the current directory."
   exit 1
 fi
@@ -61,6 +64,7 @@ HEIGHT="$DEFAULT_BASE_HEIGHT" # Use HEIGHT directly now
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 COUNT="$DEFAULT_COUNT"
 NAME_PATTERN="$DEFAULT_NAME_PATTERN"
+FORMATS="$DEFAULT_FORMATS" # Initialize formats with default
 
 # Width is determined by breakpoints, not taken as input
 while [[ $# -gt 0 ]]; do
@@ -110,7 +114,11 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -n|--name) # Set the name pattern format for generate_images.sh
-      NAME_PATTERN="$2" # e.g., "%d.jpg", "img_%d.png"
+      NAME_PATTERN="$2" # e.g., "%d", "img_%d" (no extension needed)
+      shift 2
+      ;;
+    -fmt|--format|--formats) # Added format argument handling
+      FORMATS="$2"
       shift 2
       ;;
     -w|--width) # Ignore width, it's set by breakpoint
@@ -119,7 +127,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option for $0: $1"
-      echo "Usage: $0 [options]"
+      echo "Usage: $0 [options"
       # TODO: Add a more detailed help message if desired
       exit 1
       ;;
@@ -129,6 +137,7 @@ done
 # --- Generation Logic ---
 
 echo "Generating $COUNT responsive image(s) for each breakpoint into subdirectories of '$OUTPUT_DIR'..."
+echo "Requested format(s): $FORMATS" # Inform user about formats
 echo "Breakpoints and target sizes:"
 printf "  %-5s %-9s %-5s\n" "Name" "Width" "Height"
 printf -- "---- ------- ------\n"
@@ -155,6 +164,7 @@ for bp_info in "${BREAKPOINTS[@]}"; do
   fi
 
   echo "--- Breakpoint: $bp_name (${bp_width}x${bp_height}) ---"
+  # Pass all relevant arguments, including the new --formats argument
   ./generate_images.sh \
     -w "$bp_width" \
     -h "$bp_height" \
@@ -167,11 +177,13 @@ for bp_info in "${BREAKPOINTS[@]}"; do
     -be "$BG_END" \
     -ts "$TEXT_START" \
     -te "$TEXT_END" \
-    -n "$NAME_PATTERN"
+    -n "$NAME_PATTERN" \
+    --formats "$FORMATS" # Pass the formats argument
 
   if [ $? -ne 0 ]; then
     echo "Error: generate_images.sh failed for breakpoint $bp_name."
-    # exit 1
+    # Consider whether to exit or continue with other breakpoints
+    # exit 1 # Uncomment to stop on first failure
   fi
 
   echo "--- Done for breakpoint: $bp_name ---"
@@ -179,36 +191,52 @@ for bp_info in "${BREAKPOINTS[@]}"; do
 done
 
 
-
-
 # Process base64 ONLY for xs breakpoint images
+# NOTE: This section assumes the *first* format specified in FORMATS exists
+#       for the xs breakpoint, and generates a *jpeg* base64 string.
+#       It might need adjustment if complex format handling is required here.
 base64_dir="${OUTPUT_DIR}/base64"
 xs_dir="${OUTPUT_DIR}/xs"
 
 mkdir -p "$base64_dir"
 
-for ((i=1; i<=COUNT; i++)); do
-  src_img="${xs_dir}/$(printf "$NAME_PATTERN" "$i")"
-  tiny_img="${base64_dir}/base64_${i}.jpg"
-  base64_txt="${base64_dir}/base64_${i}.txt"
-  if [ -f "$src_img" ]; then
-    # Create 16x16 jpeg
-    convert "$src_img" -resize 16x16\! "$tiny_img"
-    # Encode to base64 (single line, no data uri)
-    base64 -w0 "$tiny_img" > "$base64_txt"
+# Extract the first format from the comma-separated list
+first_format=$(echo "$FORMATS" | cut -d',' -f1 | xargs) # xargs trims whitespace
+if [[ -z "$first_format" ]]; then
+    echo "Warning: Cannot determine primary format for base64 generation from '$FORMATS'. Skipping."
+else
+    echo "Generating base64 previews (from xs breakpoint, .$first_format files)..."
+    for ((i=1; i<=COUNT; i++)); do
+      # Construct source filename using the name pattern and the *first* format
+      base_filename=$(printf "$NAME_PATTERN" "$i")
+      src_img="${xs_dir}/${base_filename}.${first_format}"
 
-    echo "Generated base64 for: $src_img"
-  else
-    echo "Warning: xs image not found: $src_img"
-  fi
-done
+      tiny_img="${base64_dir}/base64_${i}.jpg" # Keep tiny preview as jpg for consistency
+      base64_txt="${base64_dir}/base64_${i}.txt"
 
-
+      if [ -f "$src_img" ]; then
+        # Create 16x16 jpeg (output is always jpeg)
+        if convert "$src_img" -resize 16x16\! "$tiny_img"; then
+          # Encode to base64 (single line, no data uri)
+          if base64 -w0 "$tiny_img" > "$base64_txt"; then
+            echo "Generated base64 for: $src_img -> $base64_txt"
+          else
+            echo "Error: Failed to encode base64 for $tiny_img"
+          fi
+        else
+            echo "Error: Failed to resize $src_img to $tiny_img"
+        fi
+      else
+        echo "Warning: xs source image for base64 not found: $src_img"
+      fi
+    done
+fi
 
 
 echo "==================================="
 echo "Responsive image generation complete!"
 echo "Images generated in subdirectories under: $OUTPUT_DIR"
+echo "Base64 previews (if generated) in: $base64_dir"
 echo "==================================="
 
 exit 0
