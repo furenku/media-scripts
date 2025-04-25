@@ -99,6 +99,13 @@ OUTPUT_DIR="${OUTPUT_DIR:-$DEFAULT_OUTPUT_DIR}"
 COUNT="${COUNT:-$DEFAULT_COUNT}"
 NAME_PATTERN="${NAME_PATTERN:-$DEFAULT_NAME_PATTERN}"
 
+
+if ! [[ "$WIDTH" =~ ^[0-9]+$ ]] || ! [[ "$HEIGHT" =~ ^[0-9]+$ ]]; then
+    echo "Error: Width and height must be positive integers (got: WIDTH='$WIDTH', HEIGHT='$HEIGHT')."
+    exit 1
+fi
+
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
@@ -130,57 +137,61 @@ interpolate_color() {
 
 }
 
+# Generate images
 for i in $(seq 0 $((COUNT - 1))); do
-    # Calculate interpolation factor (0 to 1)
+    # Calculate interpolation factor for TEXT (0 to 1 across all images)
     # Handle COUNT=1 case to avoid division by zero
     if [[ $COUNT -eq 1 ]]; then
-        factor=0
+        text_factor=0
     else
-        # Use bc for floating point division
-        factor=$(echo "scale=10; $i / ($COUNT - 1)" | bc)
+        # Use bc for floating point division: i / (COUNT - 1)
+        text_factor=$(echo "scale=10; $i / ($COUNT - 1)" | bc)
     fi
 
-    # Interpolate colors
-    bg_color=$(interpolate_color "$BG_START" "$BG_END" "$factor")
-    text_color=$(interpolate_color "$TEXT_START" "$TEXT_END" "$factor")
+    # Calculate interpolation factors for BACKGROUND gradient segment for this image
+    # Start factor for this image's segment: i / COUNT
+    bg_start_factor=$(echo "scale=10; $i / $COUNT" | bc)
+    # End factor for this image's segment: (i + 1) / COUNT
+    bg_end_factor=$(echo "scale=10; ($i + 1) / $COUNT" | bc)
+
+    # Interpolate background gradient start and end colors for THIS image
+    bg_gradient_start=$(interpolate_color "$BG_START" "$BG_END" "$bg_start_factor")
+    bg_gradient_end=$(interpolate_color "$BG_START" "$BG_END" "$bg_end_factor")
     # Check if interpolation failed (returned original color and exit code 1)
     if [[ $? -ne 0 ]]; then
-        echo "Warning: Color interpolation failed for image $i. Using start colors." >&2
-        # Optionally fallback or exit
-        bg_color="$BG_START"
-        text_color="$TEXT_START"
-        # exit 1 # Or continue with defaults
+        echo "Warning: Background color interpolation failed for image $i start/end. Using global start/end." >&2
+        bg_gradient_start="$BG_START"
+        bg_gradient_end="$BG_END"
+        # Optionally exit or use fallback
     fi
 
 
+    # Interpolate text color based on its overall position
+    text_color=$(interpolate_color "$TEXT_START" "$TEXT_END" "$text_factor")
+    if [[ $? -ne 0 ]]; then
+        echo "Warning: Text color interpolation failed for image $i. Using start color." >&2
+        text_color="$TEXT_START"
+        # Optionally exit or use fallback
+    fi
+
     # Format filename
-    # Using printf for potentially safer formatting than direct substitution
     filename=$(printf "$NAME_PATTERN" "$((i+1))")
 
     # Build the convert command arguments in an array for safety
     cmd_args=() # Initialize empty array
 
-    # Base command: Create the gradient background canvas
-    # Use the interpolated bg_color for a smooth transition effect image-to-image
-    # Or use "$BG_START"-"$BG_END" for a consistent gradient in every image
-    # Let's use the interpolated color for a solid background that changes
-    # cmd_args=(convert -size "${WIDTH}x${HEIGHT}" "canvas:${bg_color}")
-    # -- OR -- for a gradient within each image:
-    cmd_args=(convert -size "${WIDTH}x${HEIGHT}" "gradient:${BG_START}-${BG_END}")
+    # Base command: Create the gradient background canvas using the calculated segment colors
+    cmd_args=(convert -size "${WIDTH}x${HEIGHT}" "gradient:${bg_gradient_start}-${bg_gradient_end}")
 
-
-    # Font settings (only if FONT is explicitly provided by user)
-    # Check the variable FONT which holds the user input or the default
-    if [[ "$FONT" != "$DEFAULT_FONT" ]] || [[ -n "$FONT" ]]; then # Add font if specified or not the default
+    # Font settings (only if FONT is explicitly provided by user or not default)
+    if [[ "$FONT" != "$DEFAULT_FONT" ]] || [[ -n "$FONT" ]]; then
          # Check if the font exists (basic check)
          if convert -list font | grep -q "Font: $FONT"; then
              cmd_args+=(-font "$FONT")
          else
              echo "Warning: Font '$FONT' not found by ImageMagick. Using system default." >&2
-             # Optionally remove FONT variable here so it's not used later if needed
          fi
     fi
-    # If no valid FONT specified, ImageMagick will use its default
 
     # Text settings
     cmd_args+=(-gravity center -pointsize "$FONT_SIZE" -fill "$text_color" -annotate +0+0 "$TEXT")
@@ -189,24 +200,23 @@ for i in $(seq 0 $((COUNT - 1))); do
     cmd_args+=("$OUTPUT_DIR/$filename")
 
     # --- Debugging ---
-    printf "\n--- Generating: %s ---\n" "$filename"
-    printf "BG Color: %s, Text Color: %s\n" "$bg_color" "$text_color"
-    printf "Executing command:\n"
-    # Use printf to safely quote each argument
-    printf "  Arg: %q\n" "${cmd_args[@]}"
-    echo "----------------------"
+    #printf "\n--- Generating: %s ---\n" "$filename"
+    # Use bg_gradient_start and bg_gradient_end for the debug output now
+    #printf "BG Gradient: %s -> %s, Text Color: %s\n" "$bg_gradient_start" "$bg_gradient_end" "$text_color"
+    #printf "Executing command:\n"
+    #printf "  Arg: %q\n" "${cmd_args[@]}"
+    #echo "----------------------"
     # --- End Debugging ---
 
     # Execute the command
     if ! "${cmd_args[@]}"; then
         echo "Error: convert command failed for '$filename'. See ImageMagick error above." >&2
-        # Optional: exit here if one failure should stop the script
-        # exit 1
     else
-        # Use the previously problematic echo line - should work now
-        echo "Created: $OUTPUT_DIR/$filename (BG: $bg_color, Text: $text_color, Font: ${FONT:-system default}, Size: $FONT_SIZE)"
+        # Update the success message to reflect the gradient nature
+        echo "Created: $OUTPUT_DIR/$filename"
     fi
 
 done
+
 
 echo "Image generation complete. Output in '$OUTPUT_DIR'."
