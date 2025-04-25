@@ -180,7 +180,31 @@ done
 
 
 
-done # End of breakpoint loop
+
+# Process base64 ONLY for xs breakpoint images
+base64_dir="${OUTPUT_DIR}/base64"
+xs_dir="${OUTPUT_DIR}/xs"
+
+mkdir -p "$base64_dir"
+
+for ((i=1; i<=COUNT; i++)); do
+  src_img="${xs_dir}/$(printf "$NAME_PATTERN" "$i")"
+  tiny_img="${base64_dir}/base64_${i}.jpg"
+  base64_txt="${base64_dir}/base64_${i}.txt"
+  if [ -f "$src_img" ]; then
+    # Create 16x16 jpeg
+    convert "$src_img" -resize 16x16\! "$tiny_img"
+    # Encode to base64 (single line, no data uri)
+    base64 -w0 "$tiny_img" > "$base64_txt"
+
+    echo "Generated base64 for: $src_img"
+  else
+    echo "Warning: xs image not found: $src_img"
+  fi
+done
+
+
+
 
 echo "==================================="
 echo "Responsive image generation complete!"
